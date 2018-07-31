@@ -187,15 +187,15 @@ _dns_cpaneldns_get_record() {
   _debug host $host
   _debug record $host
 
-  _dns_cpaneldns_http_api_call "cpanel_jsonapi_module=ZoneEdit" "cpanel_jsonapi_func=fetchzone_records&domain=$zone&$name=$host&type=TXT&txtdata=$record"  
-   if ! _contains "$response" "\"line\":"; then                                                                                                             
-     _info "No records left matching TXT host."                                                                                                              
-     return 1                                                                                                                                               
+  _dns_cpaneldns_http_api_call "cpanel_jsonapi_module=ZoneEdit" "cpanel_jsonapi_func=fetchzone_records&domain=$zone&$name=$host&type=TXT&txtdata=$record"
+   if ! _contains "$response" "\"line\":"; then
+     _info "No records left matching TXT host."
+     return 1
    fi
 
    if $respose ;
    then
-       recordlist=$(echo "$response" | tr '{' "\n" | grep "$record" | head -1 )                                                                                  
+       recordlist=$(echo "$response" | tr '{' "\n" | grep "$record" | _head_n 1 )
        record_id=$(echo "$recordlist" | tr ',' "\n" | grep -E '^"line"' | sed -re 's/^\"line\"\:\"([0-9]+)\"$/\1/g' | cut -d ":" -f 2)
        echo $record_id
 
