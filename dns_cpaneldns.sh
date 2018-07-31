@@ -8,7 +8,7 @@
 #CPANELDNS_AUTH_PASSWORD="yyyyyyyyyyy"
 #CPANELDNS_API="https://zzz.zzz.zzz:2083/"
 
-########  Public functions #####################
+#####################  Public functions #####################
 
 #Usage: dns_cpaneldns_add   _acme-challenge.www.domain.com   "XKrxpRBosdIKFzxW_CT3KLZNf6q0HG9i01zxXp5CPBs"
 dns_cpaneldns_add() {
@@ -64,7 +64,7 @@ dns_cpaneldns_rm() {
 
   while _dns_cpaneldns_get_record $zone $host $record ;
   do
-    record_id=$( _dns_cpaneldns_get_record $zone $host $record )
+    record_id="$( _dns_cpaneldns_get_record $zone $host $record )"
 
     if [ ! -z "$record_id" ]; then
       _debug zone "$zone"
@@ -94,7 +94,7 @@ _dns_cpaneldns_init_check() {
 
   CPANELDNS_AUTH_ID="${CPANELDNS_AUTH_ID:-$(_readaccountconf_mutable CPANELDNS_AUTH_ID)}"
   CPANELDNS_AUTH_PASSWORD="${CPANELDNS_AUTH_PASSWORD:-$(_readaccountconf_mutable CPANELDNS_AUTH_PASSWORD)}"
-  CPANELDNS_API="${CPANELDNS_API}:-$(_readaccountconf_mutable CPANELDNS_API)}" 
+  CPANELDNS_API="${CPANELDNS_API:-$(_readaccountconf_mutable CPANELDNS_API)}" 
 
   if [ -z "$CPANELDNS_AUTH_ID" ] || [ -z "$CPANELDNS_AUTH_PASSWORD" ] || [ -z "$CPANELDNS_API" ]; then
     CPANELDNS_AUTH_ID=""
@@ -115,11 +115,12 @@ _dns_cpaneldns_init_check() {
     return 1
   fi
 
-  if [ -z "$CPANELDNS_API" ]; then                                                                                                                 
-    _err "CPANELDNS_API is not configured"                                                                                                         
-    return 1                                                                                                                                                 
+  if [ -z "$CPANELDNS_API" ]; then
+    _err "CPANELDNS_API is not configured"
+    return 1
   fi
 
+  # There is no login function for the API so checking if there is news to verify credentials
   _dns_cpaneldns_http_api_call "cpanel_jsonapi_module=News" "cpanel_jsonapi_func=does_news_exist"
 
   if ! _contains "$response" "\"func\":\"does_news_exist\""; then
@@ -140,7 +141,7 @@ _dns_cpaneldns_init_check() {
 _dns_cpaneldns_get_zone_name() {
   i=2
   while true; do
-    zoneForCheck=$(printf "%s" "$1" | cut -d . -f $i-100)
+    zoneForCheck="$(printf "%s" "$1" | cut -d . -f $i-100)"
     if [ -z "$zoneForCheck" ]; then
       return 1
     fi
@@ -154,7 +155,7 @@ _dns_cpaneldns_get_zone_name() {
       return 0
     fi
 
-    i=$(_math "$i" + 1)
+    i="$(_math "$i" + 1)"
   done
   return 1
 }
@@ -171,8 +172,9 @@ _dns_cpaneldns_http_api_call() {
     data="&$method&$2"
   fi
 
-  cpanel_auth="--user $CPANELDNS_AUTH_ID:$CPANELDNS_AUTH_PASSWORD"
-  response=`curl -s $cpanel_auth  "$CPANELDNS_API/json-api/cpanel?cpanel_jsonapi_user=user&cpanel_jsonapi_apiversion=2$data"`
+  export _H1="Authorization: Basic $(printf %s "$CPANELDNS_AUTH_ID:$CPANELDNS_AUTH_PASSWORD" | _base64 )"
+
+  response="$(_get "$CPANELDNS_API/json-api/cpanel?cpanel_jsonapi_user=user&cpanel_jsonapi_apiversion=2$data")"
   _debug response "$response"
   return 0
 }
@@ -185,7 +187,7 @@ _dns_cpaneldns_get_record() {
 
   _debug zone $zone
   _debug host $host
-  _debug record $host
+  _debug record $record
 
   _dns_cpaneldns_http_api_call "cpanel_jsonapi_module=ZoneEdit" "cpanel_jsonapi_func=fetchzone_records&domain=$zone&$name=$host&type=TXT&txtdata=$record"
    if ! _contains "$response" "\"line\":"; then
@@ -195,8 +197,8 @@ _dns_cpaneldns_get_record() {
 
    if $respose ;
    then
-       recordlist=$(echo "$response" | tr '{' "\n" | grep "$record" | _head_n 1 )
-       record_id=$(echo "$recordlist" | tr ',' "\n" | grep -E '^"line"' | sed -re 's/^\"line\"\:\"([0-9]+)\"$/\1/g' | cut -d ":" -f 2)
+       recordlist="$(echo "$response" | tr '{' "\n" | grep "$record" | _head_n 1 )"
+       record_id="$(echo "$recordlist" | tr ',' "\n" | grep -E '^"line"' | sed -re 's/^\"line\"\:\"([0-9]+)\"$/\1/g' | cut -d ":" -f 2)"
        echo $record_id
 
        _debug record_id $record_id
