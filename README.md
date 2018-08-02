@@ -1,6 +1,6 @@
 # dns_cpaneldns
 
-This script is a plugin for acme.sh found in te repository https://github.com/Neilpang/acme.sh to add TXT verificationrecords to CPanel's DNS for Letsencrypt certificates. In general, before you start issueing a new certificate, you have to set a few variables for this plugin once. These variables can be found in the first lines of the script.
+This script is a plugin for acme.sh found in te repository https://github.com/Neilpang/acme.sh. It's use is to add TXT verificationrecords to CPanel's DNS for Letsencrypt certificates. In general, before you start issueing a new certificate, you have to set a few variables for this plugin once. These variables can be found in the first lines of the script.
 
 These are:
 * CPANELDNS_AUTH_ID = Your CPanel's User ID
