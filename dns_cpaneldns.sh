@@ -2,8 +2,29 @@
 
 # Author: K.D. Eenkhoorn <k dot eenkhoorn at gmail dot com>
 # Based on work of Boyan Peychev <boyan at cloudns dot net>
-# Repository: https://github.com/ClouDNS/acme.sh/
 
+# This script is a plugin for acme.sh found in te repository https://github.com/Neilpang/acme.sh.
+# It's use is to add TXT verificationrecords to CPanel's DNS for Letsencrypt certificates.
+# In general, before you start issueing a new certificate, you have to set a few variables for this plugin once.
+# These variables can be found in the first lines of the script.
+
+# These are:
+
+# CPANELDNS_AUTH_ID = Your CPanel's User ID
+# CPANELDNS_AUTH_PASSWORD = Your CPanel's User ID password
+# CPANELDNS_API = Your Cpanel's web adress including portnumber, mostly 2083
+
+# These one-time set variables will be saved for later use in the configuration of acme.sh.
+
+# Usage example:
+
+# export CPANELDNS_AUTH_ID="MY_Account"
+# export CPANELDNS_AUTH_PASSWORD="My_Password"
+# export CPANELDNS_API="https://www.example.com:2083/"
+
+# ./acme.sh --issue --dns dns_cpaneldns -d example.com -d www.example.com
+
+# Default variables, set these only in specific cases
 #CPANELDNS_AUTH_ID="xxxxxxxx"
 #CPANELDNS_AUTH_PASSWORD="yyyyyyyyyyy"
 #CPANELDNS_API="https://zzz.zzz.zzz:2083/"
@@ -62,9 +83,7 @@ dns_cpaneldns_rm() {
   host="$(echo "$1" | sed "s/\.$zone\$//")"
   record=$2
 
-  while _dns_cpaneldns_get_record $zone $host $record ;
-  do
-    record_id="$( _dns_cpaneldns_get_record $zone $host $record )"
+  while _dns_cpaneldns_get_record "$zone" "$host" "$record"; do
 
     if [ ! -z "$record_id" ]; then
       _debug zone "$zone"
@@ -94,7 +113,7 @@ _dns_cpaneldns_init_check() {
 
   CPANELDNS_AUTH_ID="${CPANELDNS_AUTH_ID:-$(_readaccountconf_mutable CPANELDNS_AUTH_ID)}"
   CPANELDNS_AUTH_PASSWORD="${CPANELDNS_AUTH_PASSWORD:-$(_readaccountconf_mutable CPANELDNS_AUTH_PASSWORD)}"
-  CPANELDNS_API="${CPANELDNS_API:-$(_readaccountconf_mutable CPANELDNS_API)}" 
+  CPANELDNS_API="${CPANELDNS_API:-$(_readaccountconf_mutable CPANELDNS_API)}"
 
   if [ -z "$CPANELDNS_AUTH_ID" ] || [ -z "$CPANELDNS_AUTH_PASSWORD" ] || [ -z "$CPANELDNS_API" ]; then
     CPANELDNS_AUTH_ID=""
@@ -105,7 +124,7 @@ _dns_cpaneldns_init_check() {
     return 1
   fi
 
-  if [ -z "$CPANELDNS_AUTH_ID" ] ; then
+  if [ -z "$CPANELDNS_AUTH_ID" ]; then
     _err "CPANELDNS_AUTH_ID is not configured"
     return 1
   fi
@@ -160,7 +179,36 @@ _dns_cpaneldns_get_zone_name() {
   return 1
 }
 
+_dns_cpaneldns_get_record() {
+
+  zone=$1
+  host=$2
+  record=$3
+
+  _debug zone "$zone"
+  _debug host "$host"
+  _debug record "$record"
+
+  _dns_cpaneldns_http_api_call "cpanel_jsonapi_module=ZoneEdit" "cpanel_jsonapi_func=fetchzone_records&domain=$zone&type=TXT&txtdata=$record"
+
+  if ! _contains "$response" "\"line\":"; then
+    _info "No records left matching TXT host."
+    record_id=""
+    return 1
+  else
+    recordlist="$(echo "$response" | tr '{' "\n" | grep "$record" | _head_n 1)"
+    record_id="$(echo "$recordlist" | tr ',' "\n" | grep -E '^"line"' | sed -re 's/^\"line\"\:\"([0-9]+)\"$/\1/g' | cut -d ":" -f 2)"
+
+    _info "Removing record ID: $record_id"
+
+    _debug record_id "$record_id"
+
+    return 0
+  fi
+}
+
 _dns_cpaneldns_http_api_call() {
+
   method=$1
 
   _debug CPANELDNS_AUTH_ID "$CPANELDNS_AUTH_ID"
@@ -172,37 +220,10 @@ _dns_cpaneldns_http_api_call() {
     data="&$method&$2"
   fi
 
-  export _H1="Authorization: Basic $(printf %s "$CPANELDNS_AUTH_ID:$CPANELDNS_AUTH_PASSWORD" | _base64 )"
+  basicauth="$(printf %s "$CPANELDNS_AUTH_ID:$CPANELDNS_AUTH_PASSWORD" | _base64)"
+  export _H1="Authorization: Basic $basicauth)"
 
   response="$(_get "$CPANELDNS_API/json-api/cpanel?cpanel_jsonapi_user=user&cpanel_jsonapi_apiversion=2$data")"
   _debug response "$response"
   return 0
-}
-
-_dns_cpaneldns_get_record() {
-
-  zone=$1
-  host=$2
-  record=$3
-
-  _debug zone $zone
-  _debug host $host
-  _debug record $record
-
-  _dns_cpaneldns_http_api_call "cpanel_jsonapi_module=ZoneEdit" "cpanel_jsonapi_func=fetchzone_records&domain=$zone&$name=$host&type=TXT&txtdata=$record"
-   if ! _contains "$response" "\"line\":"; then
-     _info "No records left matching TXT host."
-     return 1
-   fi
-
-   if $respose ;
-   then
-       recordlist="$(echo "$response" | tr '{' "\n" | grep "$record" | _head_n 1 )"
-       record_id="$(echo "$recordlist" | tr ',' "\n" | grep -E '^"line"' | sed -re 's/^\"line\"\:\"([0-9]+)\"$/\1/g' | cut -d ":" -f 2)"
-       echo $record_id
-
-       _debug record_id $record_id
-
-       return 0
-   fi
 }
