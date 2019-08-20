@@ -197,7 +197,7 @@ _dns_cpaneldns_get_record() {
     return 1
   else
     recordlist="$(echo "$response" | tr '{' "\n" | grep -- "$record" | _head_n 1)"
-    record_id="$(echo "$recordlist" | tr ',' "\n" | egrep -- '^"line"' | sed -re 's/^\"line\"\:\"([0-9]+)\"$/\1/g' | cut -d ":" -f 2)"
+    record_id="$(echo "$recordlist" | tr ',' "\n" | grep -E -- '^"line"' | sed -re 's/^\"line\"\:\"([0-9]+)\"$/\1/g' | cut -d ":" -f 2)"
 
     _info "Removing record ID: $record_id"
 
