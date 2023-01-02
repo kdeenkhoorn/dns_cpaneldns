@@ -10,24 +10,31 @@
 
 # These are:
 
-# CPANELDNS_AUTH_ID = Your CPanel's User ID
-# CPANELDNS_AUTH_PASSWORD = Your CPanel's User ID password
 # CPANELDNS_API = Your Cpanel's web adress including portnumber, mostly 2083
+# CPANELDNS_AUTH_ID = Your CPanel's User ID
+# CPANELDNS_AUTH_PASSWORD = Your CPanel's User ID password -OR- CPANELDNS_API_TOKEN = CPanel API 2 Token (see http://go.cpanel.net/ManageAPITokensIncPanel)
 
 # These one-time set variables will be saved for later use in the configuration of acme.sh.
 
 # Usage example:
 
+# export CPANELDNS_API="https://www.example.com:2083/"
 # export CPANELDNS_AUTH_ID="MY_Account"
 # export CPANELDNS_AUTH_PASSWORD="My_Password"
-# export CPANELDNS_API="https://www.example.com:2083/"
+# ./acme.sh --issue --dns dns_cpaneldns -d example.com -d www.example.com
 
+# -OR-
+
+# export CPANELDNS_API="https://www.example.com:2083/"
+# export CPANELDNS_AUTH_ID="MY_Account"
+# export CPANELDNS_API_TOKEN="API_Token"
 # ./acme.sh --issue --dns dns_cpaneldns -d example.com -d www.example.com
 
 # Default variables, set these only in specific cases
+#CPANELDNS_API="https://zzz.zzz.zzz:2083/"
 #CPANELDNS_AUTH_ID="xxxxxxxx"
 #CPANELDNS_AUTH_PASSWORD="yyyyyyyyyyy"
-#CPANELDNS_API="https://zzz.zzz.zzz:2083/"
+#CPANELDNS_API_TOKEN="ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"
 
 #####################  Public functions #####################
 
@@ -113,14 +120,16 @@ _dns_cpaneldns_init_check() {
 
   CPANELDNS_AUTH_ID="${CPANELDNS_AUTH_ID:-$(_readaccountconf_mutable CPANELDNS_AUTH_ID)}"
   CPANELDNS_AUTH_PASSWORD="${CPANELDNS_AUTH_PASSWORD:-$(_readaccountconf_mutable CPANELDNS_AUTH_PASSWORD)}"
+  CPANELDNS_API_TOKEN="${CPANELDNS_API_TOKEN:-$(_readaccountconf_mutable CPANELDNS_API_TOKEN)}"
   CPANELDNS_API="${CPANELDNS_API:-$(_readaccountconf_mutable CPANELDNS_API)}"
 
-  if [ -z "$CPANELDNS_AUTH_ID" ] || [ -z "$CPANELDNS_AUTH_PASSWORD" ] || [ -z "$CPANELDNS_API" ]; then
+  if [ -z "$CPANELDNS_AUTH_ID" ] || ( [ -z "$CPANELDNS_AUTH_PASSWORD" ] && [ -z "$CPANELDNS_API_TOKEN" ] ) || [ -z "$CPANELDNS_API" ]; then
     CPANELDNS_AUTH_ID=""
     CPANELDNS_AUTH_PASSWORD=""
+    CPANELDNS_API_TOKEN=""
     CPANELDNS_API=""
-    _err "You don't specify cpaneldns api id and password or api web interface yet."
-    _err "Please create you id and password and api and try again."
+    _err "You don't specify cpaneldns api id and password/token or api web interface yet."
+    _err "Please create your id and password/token and api and try again."
     return 1
   fi
 
@@ -129,8 +138,8 @@ _dns_cpaneldns_init_check() {
     return 1
   fi
 
-  if [ -z "$CPANELDNS_AUTH_PASSWORD" ]; then
-    _err "CPANELDNS_AUTH_PASSWORD is not configured"
+  if [ -z "$CPANELDNS_AUTH_PASSWORD" ] && [ -z "$CPANELDNS_API_TOKEN" ]; then
+    _err "Neither CPANELDNS_AUTH_PASSWORD nor CPANELDNS_API_TOKEN are not configured"
     return 1
   fi
 
@@ -143,13 +152,14 @@ _dns_cpaneldns_init_check() {
   _dns_cpaneldns_http_api_call "cpanel_jsonapi_module=News" "cpanel_jsonapi_func=does_news_exist"
 
   if ! _contains "$response" "\"func\":\"does_news_exist\""; then
-    _err "Invalid CPANELDNS_AUTH_ID or CPANELDNS_AUTH_PASSWORD. Please check your login credentials."
+    _err "Invalid CPANELDNS_AUTH_ID or CPANELDNS_AUTH_PASSWORD/CPANELDNS_API_TOKEN. Please check your login credentials."
     return 1
   fi
 
   # save the api id and password to the account conf file.
   _saveaccountconf_mutable CPANELDNS_AUTH_ID "$CPANELDNS_AUTH_ID"
   _saveaccountconf_mutable CPANELDNS_AUTH_PASSWORD "$CPANELDNS_AUTH_PASSWORD"
+  _saveaccountconf_mutable CPANELDNS_API_TOKEN "$CPANELDNS_AUTH_PASSWORD"
   _saveaccountconf_mutable CPANELDNS_API "$CPANELDNS_API"
 
   CPANELDNS_INIT_CHECK_COMPLETED=1
@@ -213,15 +223,21 @@ _dns_cpaneldns_http_api_call() {
 
   _debug CPANELDNS_AUTH_ID "$CPANELDNS_AUTH_ID"
   _debug CPANELDNS_AUTH_PASSWORD "$CPANELDNS_AUTH_PASSWORD"
+  _debug CPANELDNS_API_TOKEN "$CPANELDNS_API_TOKEN"
 
   if [ -z "$2" ]; then
     data="&$method"
   else
     data="&$method&$2"
   fi
-
-  basicauth="$(printf %s "$CPANELDNS_AUTH_ID:$CPANELDNS_AUTH_PASSWORD" | _base64)"
-  export _H1="Authorization: Basic $basicauth)"
+  
+  if [[ -z "${CPANELDNS_API_TOKEN}" ]]; then
+    basicauth="$(printf %s "$CPANELDNS_AUTH_ID:$CPANELDNS_AUTH_PASSWORD" | _base64)"
+    export _H1="Authorization: Basic $basicauth)"
+  else
+    basicauth="$(printf %s "$CPANELDNS_AUTH_ID:$CPANELDNS_API_TOKEN")"
+    export _H1="Authorization: cpanel $basicauth"
+  fi
 
   response="$(_get "$CPANELDNS_API/json-api/cpanel?cpanel_jsonapi_user=user&cpanel_jsonapi_apiversion=2$data")"
   _debug response "$response"
