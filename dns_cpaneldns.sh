@@ -159,7 +159,7 @@ _dns_cpaneldns_init_check() {
   # save the api id and password to the account conf file.
   _saveaccountconf_mutable CPANELDNS_AUTH_ID "$CPANELDNS_AUTH_ID"
   _saveaccountconf_mutable CPANELDNS_AUTH_PASSWORD "$CPANELDNS_AUTH_PASSWORD"
-  _saveaccountconf_mutable CPANELDNS_API_TOKEN "$CPANELDNS_AUTH_PASSWORD"
+  _saveaccountconf_mutable CPANELDNS_API_TOKEN "$CPANELDNS_API_TOKEN"
   _saveaccountconf_mutable CPANELDNS_API "$CPANELDNS_API"
 
   CPANELDNS_INIT_CHECK_COMPLETED=1
