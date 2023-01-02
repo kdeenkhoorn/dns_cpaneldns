@@ -3,8 +3,8 @@
 # Author: K.D. Eenkhoorn <k dot eenkhoorn at gmail dot com>
 # Based on work of Boyan Peychev <boyan at cloudns dot net>
 
-# This script is a plugin for acme.sh found in te repository https://github.com/Neilpang/acme.sh.
-# It's use is to add TXT verificationrecords to CPanel's DNS for Letsencrypt certificates.
+# This script is a plugin for acme.sh found in the repository https://github.com/Neilpang/acme.sh.
+# Its use is to add TXT verification records to CPanel's DNS for Letsencrypt certificates.
 # In general, before you start issueing a new certificate, you have to set a few variables for this plugin once.
 # These variables can be found in the first lines of the script.
 
